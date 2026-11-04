@@ -1,0 +1,13 @@
+.venv/
+venv/
+env/
+.poetry/
+__pycache__/
+*.py[cod]
+*$py.class
+*.sqlite3
+.env
+.secrets
+.vscode/
+.DS_Store
+Thumbs.db
