@@ -1,58 +1,91 @@
+from decimal import Decimal
 from django.test import TestCase
-from api.models import Category, Product, Order
-from api.serializers import CategorySerializer, ProductSerializer, OrderSerializer
+from .models import Category, Product, Order
+from .serializers import CategorySerializer, ProductSerializer, OrderSerializer
 
-class BookstoreSerializersTest(TestCase):
 
+class CategorySerializerTest(TestCase):
     def setUp(self):
-        self.category = Category.objects.create(title="Livros de Ficção")
+        self.category = Category.objects.create(title="Eletrônicos")
+        self.serializer = CategorySerializer(instance=self.category)
+
+    def test_category_serialization(self):
+        data = self.serializer.data
+        self.assertEqual(set(data.keys()), {'id', 'title'})
+        self.assertEqual(data['title'], "Eletrônicos")
+
+    def test_category_invalid_data(self):
+        serializer = CategorySerializer(data={'title': ''})
+        self.assertFalse(serializer.is_valid())
+        self.assertIn('title', serializer.errors)
+
+
+class ProductSerializerTest(TestCase):
+    def setUp(self):
+        self.category = Category.objects.create(title="Livros")
         self.product = Product.objects.create(
-            name="O Senhor dos Anéis",
-            price=79.90,
+            name="Clean Code",
+            price=Decimal("120.50"),
+            active=True,
             category=self.category
         )
 
-    def test_category_serializer_valid_data(self):
-        data = {"title": "Biografias"}
-        serializer = CategorySerializer(data=data)
-        self.assertTrue(serializer.is_valid(), serializer.errors)
+    def test_product_serialization(self):
+        serializer = ProductSerializer(instance=self.product)
+        data = serializer.data
+        self.assertEqual(data['name'], "Clean Code")
+        self.assertEqual(data['price'], "120.50")
+        self.assertEqual(data['category']['title'], "Livros")
 
-    def test_product_serializer_accepts_valid_data(self):
-        data = {
-            "name": "O Hobbit",
-            "price": "49.90",
+    def test_product_deserialization_valid(self):
+        payload = {
+            "name": "Python Fluente",
+            "price": "150.00",
+            "active": True,
             "category_id": self.category.id
         }
-        serializer = ProductSerializer(data=data)
+        serializer = ProductSerializer(data=payload)
         self.assertTrue(serializer.is_valid(), serializer.errors)
+        product = serializer.save()
+        self.assertEqual(product.category, self.category)
 
-    def test_product_serializer_requires_fields(self):
-        data = {
-            "price": "49.90",
+    def test_product_negative_price_invalid(self):
+        payload = {
+            "name": "Produto Inválido",
+            "price": "-10.00",
             "category_id": self.category.id
         }
-        serializer = ProductSerializer(data=data)
+        serializer = ProductSerializer(data=payload)
         self.assertFalse(serializer.is_valid())
-        self.assertIn("name", serializer.errors)
+        self.assertIn('price', serializer.errors)
 
-    def test_product_serializer_rejects_zero_or_negative_price(self):
-        data = {
-            "name": "Livro com erro de preço",
-            "price": "0.00",
-            "category_id": self.category.id
-        }
-        serializer = ProductSerializer(data=data)
-        self.assertFalse(serializer.is_valid())
-        self.assertIn("price", serializer.errors)
 
-    def test_order_serializer_creates_order_with_products(self):
-        data = {
-            "product_ids": [self.product.id]
+class OrderSerializerTest(TestCase):
+    def setUp(self):
+        self.category = Category.objects.create(title="Periféricos")
+        self.prod1 = Product.objects.create(
+            name="Teclado Mecânico", price=Decimal("350.00"), category=self.category
+        )
+        self.prod2 = Product.objects.create(
+            name="Mouse Gamer", price=Decimal("200.00"), category=self.category
+        )
+
+    def test_order_creation_and_serialization(self):
+        payload = {
+            "product_ids": [self.prod1.id, self.prod2.id]
         }
-        serializer = OrderSerializer(data=data)
+        serializer = OrderSerializer(data=payload)
         self.assertTrue(serializer.is_valid(), serializer.errors)
-        
         order = serializer.save()
-        self.assertEqual(order.products.count(), 1)
-        self.assertEqual(order.products.first().name, "O Senhor dos Anéis")
+
+        self.assertEqual(order.products.count(), 2)
+        
+        output_data = OrderSerializer(instance=order).data
+        self.assertEqual(len(output_data['products']), 2)
+        self.assertIn('created_at', output_data)
+
+    def test_order_empty_products_invalid(self):
+        serializer = OrderSerializer(data={"product_ids": []})
+        self.assertFalse(serializer.is_valid())
+        self.assertIn("product_ids", serializer.errors)
 

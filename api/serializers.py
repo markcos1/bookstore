@@ -31,9 +31,11 @@ class OrderSerializer(serializers.ModelSerializer):
         queryset=Product.objects.all(), 
         source='products', 
         many=True, 
-        write_only=True
+        write_only=True,
+        allow_empty=False
     )
 
     class Meta:
         model = Order
         fields = ['id', 'products', 'product_ids', 'created_at']
+        read_only_fields = ['created_at']
