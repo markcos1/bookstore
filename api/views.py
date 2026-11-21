@@ -1,4 +1,6 @@
-from rest_framework import viewsets, generics
+from rest_framework import viewsets
+from rest_framework.authentication import TokenAuthentication
+from rest_framework.permissions import IsAuthenticated
 from .models import Category, Product, Order
 from .serializers import CategorySerializer, OrderSerializer, ProductSerializer 
 
@@ -13,3 +15,6 @@ class ProductViewSet(viewsets.ModelViewSet):
 class OrderViewSet(viewsets.ModelViewSet):
     queryset = Order.objects.all().order_by('id')
     serializer_class = OrderSerializer
+
+    authentication_classes = [TokenAuthentication]
+    permission_classes = [IsAuthenticated]
